@@ -24,10 +24,13 @@ trait RequestTrait {
   def removeAttribute(name: String): Unit
   def timestamp: Long
   def toUri: String
+  def method: String
 }
 
 case class Request(underlying: HttpServletRequest, params: collection.Map[String, String] = Map(), private val started: Long = System.currentTimeMillis()) extends RequestTrait {
   private val bodyRead = new AtomicBoolean(false)
+
+  def method: String = underlying.getMethod
 
   def cookie(cookieName: String): Option[String] = safeGetCookies(underlying).collectFirst {
     case c if c.getName == cookieName => c.getValue
