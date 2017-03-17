@@ -14,7 +14,6 @@ trait RequestTrait {
   def cookie(cookieName: String): Option[String]
   def captured(name: String): String
   def captured(i: Int): String
-  def path: String
   def queryStringParamValue(name: String): String
   def queryStringParamValues(name: String): Set[String]
   def header(name: String): Option[String]
@@ -24,13 +23,28 @@ trait RequestTrait {
   def removeAttribute(name: String): Unit
   def timestamp: Long
   def toUri: String
-  def method: String
 }
 
-case class Request(underlying: HttpServletRequest, params: collection.Map[String, String] = Map(), private val started: Long = System.currentTimeMillis()) extends RequestTrait {
-  private val bodyRead = new AtomicBoolean(false)
-
+class MatchableRequest private (underlying: HttpServletRequest, started: Long) {
   def method: String = underlying.getMethod
+
+  def path: String = underlying.getRequestURI
+  //relative to servlet path
+  def relativePath: String =
+    if (path.indexOf(underlying.getServletPath) > -1)
+      path.substring(underlying.getServletPath.length)
+    else
+      path
+
+  def withParams(params: collection.Map[String, String]): Request = Request(underlying, params, started)
+}
+
+object MatchableRequest {
+  def start(underlying: HttpServletRequest): MatchableRequest = new MatchableRequest(underlying, System.currentTimeMillis())
+}
+
+case class Request(underlying: HttpServletRequest, params: collection.Map[String, String], timestamp: Long) extends RequestTrait {
+  private val bodyRead = new AtomicBoolean(false)
 
   def cookie(cookieName: String): Option[String] = safeGetCookies(underlying).collectFirst {
     case c if c.getName == cookieName => c.getValue
@@ -40,15 +54,6 @@ case class Request(underlying: HttpServletRequest, params: collection.Map[String
 
   def captured(name: String): String = params(name)
   def captured(i: Int): String = captured(i.toString)
-
-  def path: String = underlying.getRequestURI
-
-  //relative to servlet path
-  def relativePath: String =
-    if (path.indexOf(underlying.getServletPath) > -1)
-      path.substring(underlying.getServletPath.length)
-    else
-      path
 
   def queryStringParamValue(name: String): String = underlying.getParameter(name)
 
@@ -61,8 +66,6 @@ case class Request(underlying: HttpServletRequest, params: collection.Map[String
   def attribute(name: String): Option[Any] = Option(underlying.getAttribute(name))
   def setAttribute(name: String, value: Any): Unit = underlying.setAttribute(name, value)
   def removeAttribute(name: String): Unit = underlying.removeAttribute(name)
-
-  def timestamp: Long = started
 
   def toUri: String = {
     val queryString: Option[String] = Option(underlying.getQueryString)

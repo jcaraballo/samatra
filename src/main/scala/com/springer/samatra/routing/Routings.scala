@@ -21,14 +21,14 @@ object Routings {
 
   class ControllerServlet(controller: Routes) extends HttpServlet {
     override def service(req: HttpServletRequest, resp: HttpServletResponse): Unit = {
-      val request: Request = Request(req)
+      val matchableRequest = MatchableRequest.start(req)
 
-      controller.matching(request) match {
+      controller.matching(matchableRequest) match {
         case Right((route, captured)) =>
-          route.write(request.copy(params = captured), resp)
+          route.write(matchableRequest.withParams(captured), resp)
 
         case Left(matchingOnDifferentMethod) =>
-          new DefaultRoute(matchingOnDifferentMethod).write(request, resp)
+          new DefaultRoute(matchingOnDifferentMethod).write(matchableRequest.withParams(Map.empty), resp)
       }
     }
   }
@@ -40,7 +40,7 @@ object Routings {
   trait Routes {
     val routes: Seq[Route]
 
-    def matching(request: Request): Either[Seq[Route], (Route, collection.Map[String, String])] = {
+    def matching(request: MatchableRequest): Either[Seq[Route], (Route, collection.Map[String, String])] = {
       val matchingByPath = routes.view.map(r => (r, r.matches(request.relativePath))).collect {
         case (r, Some(captured)) => (r, captured)
       }
