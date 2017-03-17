@@ -23,7 +23,7 @@ object Routings {
     override def service(req: HttpServletRequest, resp: HttpServletResponse): Unit = {
       val request: Request = Request(req)
 
-      val matchingRoute: Route = controller.matching(req, resp) match {
+      val matchingRoute: Route = controller.matching(req) match {
         case Right(route) => route
         case Left(matchingOnDifferentMethod) => new DefaultRoute(matchingOnDifferentMethod)
       }
@@ -39,7 +39,7 @@ object Routings {
   trait Routes {
     val routes: Seq[Route]
 
-    def matching(req: HttpServletRequest, resp: HttpServletResponse): Either[Seq[Route], Route] = {
+    def matching(req: HttpServletRequest): Either[Seq[Route], Route] = {
       val matchingRoutes: Seq[Route] = routes.filter(_.matches(Request(req).relativePath).isDefined)
       //find first
       matchingRoutes.find(_.method.toString == req.getMethod) match {
