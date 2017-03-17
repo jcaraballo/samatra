@@ -2,7 +2,7 @@ package com.springer.samatra.routing
 
 import javax.servlet.http._
 
-import scala.collection.mutable
+import scala.collection.{Map, SeqView, mutable}
 import scala.collection.mutable.ArrayBuffer
 import scala.util.matching.Regex
 
@@ -23,12 +23,13 @@ object Routings {
     override def service(req: HttpServletRequest, resp: HttpServletResponse): Unit = {
       val request: Request = Request(req)
 
-      val matchingRoute: Route = controller.matching(req) match {
-        case Right(route) => route
-        case Left(matchingOnDifferentMethod) => new DefaultRoute(matchingOnDifferentMethod)
-      }
+      controller.matching(req) match {
+        case Right((route, captured)) =>
+          route.write(request.copy(params = captured), resp)
 
-      matchingRoute.write(request.copy(params = matchingRoute.matches(request.relativePath).get), resp)
+        case Left(matchingOnDifferentMethod) =>
+          new DefaultRoute(matchingOnDifferentMethod).write(request, resp)
+      }
     }
   }
 
@@ -39,12 +40,14 @@ object Routings {
   trait Routes {
     val routes: Seq[Route]
 
-    def matching(req: HttpServletRequest): Either[Seq[Route], Route] = {
-      val matchingRoutes: Seq[Route] = routes.filter(_.matches(Request(req).relativePath).isDefined)
-      //find first
-      matchingRoutes.find(_.method.toString == req.getMethod) match {
-        case Some(r) => Right(r)
-        case None => Left(matchingRoutes)
+    def matching(req: HttpServletRequest): Either[Seq[Route], (Route, collection.Map[String, String])] = {
+      val matchingByPath = routes.view.map(r => (r, r.matches(Request(req).relativePath))).collect{
+        case (r, Some(captured)) => (r, captured)
+      }
+      matchingByPath.find(_._1.method.toString == req.getMethod) match {
+        case Some(routeAndCaptured) => Right(routeAndCaptured)
+        case None =>
+          Left(matchingByPath.map(_._1).force)
       }
     }
   }
