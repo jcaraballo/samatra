@@ -28,7 +28,7 @@ object Routings {
         case Left(matchingOnDifferentMethod) => new DefaultRoute(matchingOnDifferentMethod)
       }
 
-      matchingRoute.write(request.copy(params = matchingRoute.matches(request).get), resp)
+      matchingRoute.write(request.copy(params = matchingRoute.matches(request.relativePath).get), resp)
     }
   }
 
@@ -40,7 +40,7 @@ object Routings {
     val routes: Seq[Route]
 
     def matching(req: HttpServletRequest, resp: HttpServletResponse): Either[Seq[Route], Route] = {
-      val matchingRoutes: Seq[Route] = routes.filter(_.matches(Request(req)).isDefined)
+      val matchingRoutes: Seq[Route] = routes.filter(_.matches(Request(req).relativePath).isDefined)
       //find first
       matchingRoutes.find(_.method.toString == req.getMethod) match {
         case Some(r) => Right(r)
@@ -102,7 +102,7 @@ object Routings {
   trait Route {
     def method: HttpMethod
 
-    def matches(req: Request): Option[collection.Map[String, String]]
+    def matches(relativePath: String): Option[collection.Map[String, String]]
 
     def write(req: Request, resp: HttpServletResponse): Unit
   }
@@ -110,7 +110,7 @@ object Routings {
   sealed class DefaultRoute(routes: Seq[Route]) extends Route {
     override def method: HttpMethod = throw new IllegalStateException
 
-    override def matches(req: Request): Option[collection.Map[String, String]] = Some(Map())
+    override def matches(relativePath: String): Option[collection.Map[String, String]] = Some(Map())
 
     override def write(req: Request, resp: HttpServletResponse): Unit = routes.toList match {
       case Nil => resp.sendError(404)
@@ -127,7 +127,8 @@ object Routings {
   }
 
   sealed case class RegexRoute[T](method: HttpMethod, pattern: Regex, response: Request => HttpResp) extends WritingRoute(method, response) {
-    override def matches(req: Request) = pattern.unapplySeq(req.relativePath).map(_.zipWithIndex.map { case (k, v) => v.toString -> k }.toMap)
+    override def matches(relativePath: String): Option[Map[String, String]] =
+      pattern.unapplySeq(relativePath).map(_.zipWithIndex.map { case (k, v) => v.toString -> k }.toMap)
 
     override def toString: String = {
       s"${method.toString.padTo(4, ' ')} ${pattern.toString.padTo(32, ' ')}"
@@ -135,8 +136,8 @@ object Routings {
   }
 
   sealed case class PathParamsRoute[T](method: HttpMethod, path: String, response: Request => HttpResp) extends WritingRoute(method, response) {
-    override def matches(req: Request): Option[collection.Map[String, String]] = {
-      val actual: Array[String] = req.relativePath.split("/")
+    override def matches(relativePath: String): Option[collection.Map[String, String]] = {
+      val actual: Array[String] = relativePath.split("/")
       val pattern: Array[String] = path.split("/")
 
       if (actual.length != pattern.length)

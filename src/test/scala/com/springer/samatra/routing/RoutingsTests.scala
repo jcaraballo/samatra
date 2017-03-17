@@ -45,10 +45,5 @@ class RoutingsTests extends FunSpec {
 
   def regexPattern(pattern: Regex): RegexRoute[String] = RegexRoute(GET, pattern, { _ => "" })
 
-  def requestWithPath(p: String): Request = {
-    new Request(null) {
-      override def relativePath: String = p
-
-    }
-  }
+  def requestWithPath(p: String): String = p
 }
