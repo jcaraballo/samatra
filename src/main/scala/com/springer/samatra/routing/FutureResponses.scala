@@ -12,7 +12,7 @@ object FutureResponses {
   val defaultTimeout = 15000
 
   object Implicits {
-    implicit def fromFuture[T](fut: Future[T])(implicit rest: T => HttpResp, executor: ExecutionContext = ExecutionContext.global): HttpResp = FutureResponses.fromFuture(fut, logThreadDumpOnTimeout = false)
+    implicit def fromFuture[T](fut: Future[T])(implicit rest: T => HttpResp, executor: ExecutionContext): HttpResp = FutureResponses.fromFuture(fut, logThreadDumpOnTimeout = false)
   }
 
   class NoCancelForScalaFutures extends AsyncCancellation {
@@ -26,9 +26,9 @@ object FutureResponses {
     }
   }
 
-  def fromFuture[T](fut: Future[T], logThreadDumpOnTimeout: Boolean)(implicit rest: T => HttpResp, executor: ExecutionContext = ExecutionContext.global): HttpResp =
+  def fromFuture[T](fut: Future[T], logThreadDumpOnTimeout: Boolean)(implicit rest: T => HttpResp, executor: ExecutionContext): HttpResp =
     AsyncHttpResp(new FutureBackedAsync(fut), defaultTimeout, rest, logThreadDumpOnTimeout)
 
-  def fromFutureWithTimeout[T](timeout: Long, fut: Future[T], logThreadDumpOnTimeout: Boolean = false)(implicit rest: T => HttpResp, executor: ExecutionContext = ExecutionContext.global): HttpResp =
+  def fromFutureWithTimeout[T](timeout: Long, fut: Future[T], logThreadDumpOnTimeout: Boolean = false)(implicit rest: T => HttpResp, executor: ExecutionContext): HttpResp =
     AsyncHttpResp(new FutureBackedAsync(fut), timeout, rest, logThreadDumpOnTimeout)
 }
